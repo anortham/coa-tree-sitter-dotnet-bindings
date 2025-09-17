@@ -85,3 +85,21 @@
 [submodule "tree-sitter-native/tree-sitter-verilog"]
 	path = tree-sitter-native/tree-sitter-verilog
 	url = https://github.com/tree-sitter/tree-sitter-verilog.git
+[submodule "tree-sitter-native/tree-sitter-dart"]
+	path = tree-sitter-native/tree-sitter-dart
+	url = https://github.com/UserNobody14/tree-sitter-dart.git
+[submodule "tree-sitter-native/tree-sitter-kotlin"]
+	path = tree-sitter-native/tree-sitter-kotlin
+	url = https://github.com/fwcd/tree-sitter-kotlin.git
+[submodule "tree-sitter-native/tree-sitter-lua"]
+	path = tree-sitter-native/tree-sitter-lua
+	url = https://github.com/tree-sitter-grammars/tree-sitter-lua.git
+[submodule "tree-sitter-native/tree-sitter-sql"]
+	path = tree-sitter-native/tree-sitter-sql
+	url = https://github.com/DerekStride/tree-sitter-sql.git
+[submodule "tree-sitter-native/tree-sitter-yaml"]
+	path = tree-sitter-native/tree-sitter-yaml
+	url = https://github.com/tree-sitter-grammars/tree-sitter-yaml.git
+[submodule "tree-sitter-native/tree-sitter-markdown"]
+	path = tree-sitter-native/tree-sitter-markdown
+	url = https://github.com/tree-sitter-grammars/tree-sitter-markdown.git
