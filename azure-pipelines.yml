@@ -151,9 +151,9 @@ stages:
               artifact: 'win-x64-libraries'
               publishLocation: 'pipeline'
 
-      # macOS Universal build
+      # macOS x64 build (Microsoft hosted agents are Intel-only)
       - job: BuildMacOS
-        displayName: "Build macOS Universal Native Libraries"
+        displayName: "Build macOS x64 Native Libraries"
         pool:
           vmImage: 'macos-latest'
         steps:
@@ -166,12 +166,12 @@ stages:
               echo "=================="
               echo "Agent OS: $AGENT_OS"
               echo "OS Version: $(sw_vers)"
+              echo "Architecture: $(uname -m)"
               echo "=================="
             displayName: "Display agent information"
 
           - script: |
               brew install tree-sitter
-              chmod +x build-macos-universal.sh
               chmod +x update-grammars.sh
             displayName: 'Install macOS dependencies'
 
@@ -180,13 +180,14 @@ stages:
             displayName: 'Update grammar sources'
 
           - script: |
-              ./build-macos-universal.sh
-            displayName: 'Build universal libraries'
+              cd tree-sitter-native
+              make
+            displayName: 'Build native libraries'
 
           - task: PublishPipelineArtifact@1
             inputs:
-              targetPath: 'build/runtimes/osx/native'
-              artifact: 'osx-universal-libraries'
+              targetPath: 'build/runtimes/osx-x64/native'
+              artifact: 'osx-x64-libraries'
               publishLocation: 'pipeline'
 
   - stage: Build
