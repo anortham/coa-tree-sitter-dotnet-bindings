@@ -19,8 +19,8 @@ else
 endif
 
 BUILD_DIR = ../build/runtimes/$(RID)/native
-# All supported languages including new ones (26 total)
-LANGUAGES = agda bash c cpp c-sharp css dart embedded-template go haskell html java javascript jsdoc json julia kotlin lua ocaml php python ql ruby rust scala sql swift typescript tsx verilog yaml
+# All supported languages (22 total)
+LANGUAGES = agda bash c cpp c-sharp css embedded-template go haskell html java javascript jsdoc json julia ocaml php python ql ruby rust scala swift typescript verilog
 PROJECTS = tree-sitter $(patsubst %,tree-sitter-%,$(LANGUAGES))
 LIBRARIES = $(patsubst %,$(BUILD_DIR)/lib%.$(LIB_EXT),$(PROJECTS))
 
