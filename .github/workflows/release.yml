@@ -1,0 +1,169 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 1.1.0)'
+        required: true
+        default: '1.1.0'
+
+jobs:
+  build-matrix:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+            build-cmd: cd tree-sitter-native && make
+            lib-ext: so
+          - os: macos-latest
+            rid: osx
+            build-cmd: ./build-macos-universal.sh
+            lib-ext: dylib
+          - os: windows-latest
+            rid: win-x64
+            build-cmd: msbuild tree-sitter-native/tree-sitter-native.sln /p:Configuration=Release /p:Platform=x64
+            lib-ext: dll
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: |
+          6.0.x
+          7.0.x
+          8.0.x
+
+    - name: Install dependencies (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential nodejs npm
+        sudo npm install -g tree-sitter-cli
+
+    - name: Install dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install tree-sitter
+        chmod +x build-macos-universal.sh
+
+    - name: Install dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        npm install -g tree-sitter-cli
+        choco install make
+
+    - name: Update grammar sources
+      shell: bash
+      run: |
+        chmod +x update-grammars.sh
+        ./update-grammars.sh
+
+    - name: Build native libraries
+      shell: bash
+      run: ${{ matrix.build-cmd }}
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: native-libraries-${{ matrix.rid }}
+        path: build/runtimes/${{ matrix.rid }}/native/*.${{ matrix.lib-ext }}
+        retention-days: 7
+
+  package-and-publish:
+    needs: build-matrix
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Organize artifacts
+      run: |
+        mkdir -p build/runtimes/linux-x64/native
+        mkdir -p build/runtimes/win-x64/native
+        mkdir -p build/runtimes/osx/native
+
+        cp artifacts/native-libraries-linux-x64/* build/runtimes/linux-x64/native/ || true
+        cp artifacts/native-libraries-win-x64/* build/runtimes/win-x64/native/ || true
+        cp artifacts/native-libraries-osx/* build/runtimes/osx/native/ || true
+
+    - name: Build .NET package
+      run: |
+        cd src
+        dotnet pack TreeSitter.csproj --configuration Release --output ../packages
+
+    - name: Test package
+      run: |
+        dotnet test tests/TreeSitter.Tests.csproj --configuration Release
+
+    - name: Publish to NuGet
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+      env:
+        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      run: |
+        dotnet nuget push packages/*.nupkg --api-key $NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+    - name: Create GitHub Release
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        body: |
+          ## Tree-Sitter .NET Bindings ${{ github.ref }}
+
+          ### 🎉 Comprehensive Language Support (26 Languages)
+
+          **Core Systems**: C, C#, Rust, Go
+          **Web Frontend**: JavaScript, TypeScript, HTML, CSS, JSON
+          **Web Backend**: PHP, Python, Java, Scala, Kotlin
+          **Mobile**: Swift, Dart, Java, Kotlin
+          **Functional**: Haskell, Scala
+          **Scripting**: Python, Bash, Lua, Ruby
+          **Data/Config**: SQL, YAML, JSON
+          **Documentation**: Markdown, JSDoc, Embedded Template
+
+          ### ✨ New in this release:
+          - ✅ **Swift** support (critical for Xcode/Claude integration)
+          - ✅ **SQL** support for database query parsing
+          - ✅ **YAML** support for configuration files
+          - ✅ **Dart** support for Flutter development
+          - ✅ **Lua** support for scripting
+          - ✅ **Markdown** support for documentation
+
+          ### 🔧 Cross-Platform Support:
+          - Windows (x64)
+          - Linux (x64)
+          - macOS (Universal - Intel + Apple Silicon)
+
+          Total: **26 programming languages** with professional-grade parsing capabilities.
+        draft: false
+        prerelease: false
+
+    - name: Upload package artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: nuget-packages
+        path: packages/*.nupkg

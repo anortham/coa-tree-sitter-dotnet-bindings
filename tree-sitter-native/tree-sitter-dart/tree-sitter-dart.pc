@@ -1,0 +1,11 @@
+prefix=/usr/local
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: tree-sitter-dart
+Description: Dart grammar for tree-sitter
+URL: https://github.com/anortham/coa-tree-sitter-dotnet-bindings
+Version: 0.0.1
+Requires: 
+Libs: -L${libdir}  -ltree-sitter-dart
+Cflags: -I${includedir}

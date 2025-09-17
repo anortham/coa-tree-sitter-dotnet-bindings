@@ -1,0 +1,525 @@
+# Azure Pipelines for Tree-Sitter .NET Bindings
+# Supports both CI builds (automatic) and Release builds (manual)
+# CI: Builds and publishes to Azure DevOps feed only
+# Release: Manual trigger with option to publish to NuGet.org
+
+name: 'Tree-Sitter .NET Bindings - v$(majorVersion).$(minorVersion).$(patchVersion)'
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+      - release/*
+  tags:
+    include:
+      - v*
+  paths:
+    exclude:
+      - "**/*.md"
+      - ".gitignore"
+      - "docs/**"
+
+pr:
+  branches:
+    include:
+      - main
+      - develop
+
+# Parameters for manual runs
+parameters:
+  - name: publishToNuGet
+    displayName: 'Publish to NuGet.org?'
+    type: boolean
+    default: false
+  - name: createGitTag
+    displayName: 'Create Git tag for release?'
+    type: boolean
+    default: true
+
+variables:
+  buildConfiguration: "Release"
+  dotnetSdkVersion: "8.x"
+  # Base version for Tree-Sitter .NET Bindings - v1.1.0 (26 languages)
+  majorVersion: 1
+  minorVersion: 1
+  # Auto-incrementing patch version - increments on every build
+  patchVersion: $[counter(format('{0}.{1}', variables['majorVersion'], variables['minorVersion']), 0)]
+  versionPrefix: "$(majorVersion).$(minorVersion).$(patchVersion)"
+  versionSuffix: ""
+  # Cross-platform settings
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  NUGET_PACKAGES: $(Pipeline.Workspace)/.nuget/packages
+  # Manual run parameters
+  shouldPublishToNuGet: ${{ parameters.publishToNuGet }}
+  shouldCreateTag: ${{ parameters.createGitTag }}
+  # Determine if this is a release build
+  isRelease: ${{ eq(variables['Build.Reason'], 'Manual') }}
+
+stages:
+  - stage: BuildNativeLibraries
+    displayName: "Build Native Libraries"
+    jobs:
+      # Linux x64 build
+      - job: BuildLinux
+        displayName: "Build Linux x64 Native Libraries"
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - checkout: self
+            fetchDepth: 0
+            clean: true
+
+          - script: |
+              echo "Agent Information:"
+              echo "=================="
+              echo "Agent OS: $AGENT_OS"
+              echo "OS Version: $(lsb_release -d)"
+              echo "=================="
+            displayName: "Display agent information"
+
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '18.x'
+
+          - script: |
+              sudo apt-get update
+              sudo apt-get install -y build-essential
+              npm install -g tree-sitter-cli
+            displayName: 'Install Linux dependencies'
+
+          - script: |
+              chmod +x update-grammars.sh
+              ./update-grammars.sh
+            displayName: 'Update grammar sources'
+
+          - script: |
+              cd tree-sitter-native
+              make
+            displayName: 'Build native libraries'
+
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: 'build/runtimes/linux-x64/native'
+              artifact: 'linux-x64-libraries'
+              publishLocation: 'pipeline'
+
+      # Windows x64 build
+      - job: BuildWindows
+        displayName: "Build Windows x64 Native Libraries"
+        pool:
+          vmImage: 'windows-latest'
+        steps:
+          - checkout: self
+            fetchDepth: 0
+            clean: true
+
+          - powershell: |
+              Write-Host "Agent Information:"
+              Write-Host "=================="
+              Write-Host "Agent Name: $env:AGENT_NAME"
+              Write-Host "Agent OS: $env:AGENT_OS"
+              Write-Host "OS Version: $([System.Environment]::OSVersion.VersionString)"
+              Write-Host "PowerShell Version: $($PSVersionTable.PSVersion)"
+              Write-Host "=================="
+            displayName: "Display agent information"
+
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '18.x'
+
+          - script: |
+              npm install -g tree-sitter-cli
+              choco install make
+            displayName: 'Install Windows dependencies'
+
+          - script: |
+              update-grammars.sh
+            displayName: 'Update grammar sources'
+
+          - task: MSBuild@1
+            inputs:
+              solution: 'tree-sitter-native/tree-sitter-native.sln'
+              platform: 'x64'
+              configuration: '$(buildConfiguration)'
+            displayName: 'Build native libraries'
+
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: 'build/runtimes/win-x64/native'
+              artifact: 'win-x64-libraries'
+              publishLocation: 'pipeline'
+
+      # macOS Universal build
+      - job: BuildMacOS
+        displayName: "Build macOS Universal Native Libraries"
+        pool:
+          vmImage: 'macos-latest'
+        steps:
+          - checkout: self
+            fetchDepth: 0
+            clean: true
+
+          - script: |
+              echo "Agent Information:"
+              echo "=================="
+              echo "Agent OS: $AGENT_OS"
+              echo "OS Version: $(sw_vers)"
+              echo "=================="
+            displayName: "Display agent information"
+
+          - script: |
+              brew install tree-sitter
+              chmod +x build-macos-universal.sh
+              chmod +x update-grammars.sh
+            displayName: 'Install macOS dependencies'
+
+          - script: |
+              ./update-grammars.sh
+            displayName: 'Update grammar sources'
+
+          - script: |
+              ./build-macos-universal.sh
+            displayName: 'Build universal libraries'
+
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: 'build/runtimes/osx/native'
+              artifact: 'osx-universal-libraries'
+              publishLocation: 'pipeline'
+
+  - stage: Build
+    displayName: "Build and Test"
+    dependsOn: BuildNativeLibraries
+    jobs:
+      - job: BuildAndTest
+        displayName: "Build, Test, and Pack"
+        pool:
+          name: "Default" # Using local Windows agent pool
+        steps:
+          - checkout: self
+            fetchDepth: 0
+            clean: true
+
+          - powershell: |
+              Write-Host "Agent Information:"
+              Write-Host "=================="
+              Write-Host "Agent Name: $env:AGENT_NAME"
+              Write-Host "Agent OS: $env:AGENT_OS"
+              Write-Host "Agent Version: $env:AGENT_VERSION"
+              Write-Host "OS Version: $([System.Environment]::OSVersion.VersionString)"
+              Write-Host "PowerShell Version: $($PSVersionTable.PSVersion)"
+              Write-Host "=================="
+            displayName: "Display agent information"
+
+          - task: DownloadPipelineArtifact@2
+            inputs:
+              buildType: 'current'
+              artifactName: 'linux-x64-libraries'
+              targetPath: 'build/runtimes/linux-x64/native'
+            displayName: 'Download Linux libraries'
+
+          - task: DownloadPipelineArtifact@2
+            inputs:
+              buildType: 'current'
+              artifactName: 'win-x64-libraries'
+              targetPath: 'build/runtimes/win-x64/native'
+            displayName: 'Download Windows libraries'
+
+          - task: DownloadPipelineArtifact@2
+            inputs:
+              buildType: 'current'
+              artifactName: 'osx-universal-libraries'
+              targetPath: 'build/runtimes/osx/native'
+            displayName: 'Download macOS libraries'
+
+          - powershell: |
+              Write-Host "Downloaded native libraries:"
+              Write-Host "============================="
+              $totalFiles = 0
+              Get-ChildItem -Path "build" -Recurse -Include "*.dll", "*.so", "*.dylib" | ForEach-Object {
+                  Write-Host "$($_.FullName.Replace($PWD, '.'))"
+                  $totalFiles++
+              }
+              Write-Host "Total native library files: $totalFiles"
+              Write-Host "============================="
+
+              # Verify we have libraries for all platforms
+              $platforms = @("linux-x64", "win-x64", "osx")
+              foreach ($platform in $platforms) {
+                  $platformPath = "build/runtimes/$platform/native"
+                  if (Test-Path $platformPath) {
+                      $count = (Get-ChildItem $platformPath -Include "*.dll", "*.so", "*.dylib").Count
+                      Write-Host "$platform`: $count libraries"
+                  } else {
+                      Write-Warning "$platform`: No libraries found!"
+                  }
+              }
+            displayName: "Verify native libraries"
+
+          - task: Cache@2
+            displayName: "Cache NuGet packages"
+            inputs:
+              key: 'nuget | "$(Agent.OS)" | **/*.csproj,!**/bin/**,!**/obj/**'
+              restoreKeys: |
+                nuget | "$(Agent.OS)"
+                nuget
+              path: "$(NUGET_PACKAGES)"
+
+          - powershell: |
+              # Calculate version based on branch/tag (same logic as CodeSearch MCP)
+              $majorVersion = $(majorVersion)
+              $minorVersion = $(minorVersion)
+              $patchVersion = $(patchVersion)
+
+              $buildRevision = $env:BUILD_BUILDNUMBER.Split('.')[-1]
+
+              Write-Host "Build Source Branch: $env:BUILD_SOURCEBRANCH"
+              Write-Host "Build Reason: $env:BUILD_REASON"
+              Write-Host "Patch Version (auto-incremented): $patchVersion"
+
+              if ($env:BUILD_SOURCEBRANCH -match "^refs/tags/v(.*)") {
+                  $version = $matches[1]
+                  $versionSuffix = ""
+                  Write-Host "Tag build detected. Version from tag: $version"
+              }
+              elseif ($env:BUILD_SOURCEBRANCH -eq "refs/heads/main") {
+                  $version = "$majorVersion.$minorVersion.$patchVersion"
+                  $versionSuffix = ""
+                  Write-Host "Main branch build. Version: $version"
+              }
+              elseif ($env:BUILD_SOURCEBRANCH -match "^refs/heads/release/(.*)") {
+                  $releaseName = $matches[1]
+                  if ($releaseName -match "^(\d+)\.(\d+)") {
+                      $majorVersion = $matches[1]
+                      $minorVersion = $matches[2]
+                  }
+                  $version = "$majorVersion.$minorVersion.$patchVersion"
+                  $versionSuffix = "rc.$buildRevision"
+                  Write-Host "Release branch build. Version: $version-$versionSuffix"
+              }
+              elseif ($env:BUILD_SOURCEBRANCH -eq "refs/heads/develop") {
+                  $version = "$majorVersion.$minorVersion.$patchVersion"
+                  $versionSuffix = "preview.$buildRevision"
+                  Write-Host "Develop branch build. Version: $version-$versionSuffix"
+              }
+              else {
+                  $version = "$majorVersion.$minorVersion.$patchVersion"
+                  $branchName = $env:BUILD_SOURCEBRANCHNAME -replace '[^a-zA-Z0-9]', ''
+                  $versionSuffix = "alpha.$branchName.$buildRevision"
+                  Write-Host "Feature branch build. Version: $version-$versionSuffix"
+              }
+
+              Write-Host "##vso[task.setvariable variable=versionPrefix]$version"
+              Write-Host "##vso[task.setvariable variable=versionSuffix]$versionSuffix"
+
+              if ($versionSuffix) {
+                  Write-Host "##vso[build.updatebuildnumber]$version-$versionSuffix"
+                  Write-Host "Final version: $version-$versionSuffix"
+              }
+              else {
+                  Write-Host "##vso[build.updatebuildnumber]$version"
+                  Write-Host "Final version: $version"
+              }
+            displayName: "Calculate version number"
+
+          - powershell: |
+              Write-Host "========================================="
+              Write-Host "Tree-Sitter Package Version Information:"
+              Write-Host "========================================="
+              Write-Host "Major Version: $(majorVersion)"
+              Write-Host "Minor Version: $(minorVersion)"
+              Write-Host "Patch Version: $(patchVersion)"
+              Write-Host "Version Prefix: $(versionPrefix)"
+              Write-Host "Version Suffix: $(versionSuffix)"
+              if ("$(versionSuffix)") {
+                  Write-Host "Full Version: $(versionPrefix)-$(versionSuffix)"
+              }
+              else {
+                  Write-Host "Full Version: $(versionPrefix)"
+              }
+              Write-Host "Supported Languages: 26 (Swift, PHP, SQL, YAML, Dart, Lua, and more)"
+              Write-Host "========================================="
+            displayName: "Display version information"
+
+          - task: UseDotNet@2
+            displayName: "Install .NET SDK"
+            inputs:
+              version: $(dotnetSdkVersion)
+              includePreviewVersions: false
+
+          - task: DotNetCoreCLI@2
+            displayName: "Restore packages"
+            inputs:
+              command: "restore"
+              projects: "**/*.csproj"
+              feedsToUse: "select"
+              vstsFeed: "COA"
+              includeNuGetOrg: true
+
+          - powershell: |
+              $versionArgs = "-p:VersionPrefix=$(versionPrefix)"
+              if ("$(versionSuffix)") {
+                  $versionArgs += " -p:VersionSuffix=$(versionSuffix)"
+              }
+              Write-Host "##vso[task.setvariable variable=versionArguments]$versionArgs"
+              Write-Host "Version arguments: $versionArgs"
+            displayName: "Prepare version arguments"
+
+          - task: DotNetCoreCLI@2
+            displayName: "Build solution"
+            inputs:
+              command: "build"
+              projects: "**/*.sln"
+              arguments: "--configuration $(buildConfiguration) --no-restore $(versionArguments)"
+
+          - task: DotNetCoreCLI@2
+            displayName: "Run tests"
+            inputs:
+              command: "test"
+              projects: "**/*Tests.csproj"
+              arguments: '--configuration $(buildConfiguration) --no-build --collect:"XPlat Code Coverage"'
+              publishTestResults: true
+
+          - task: PublishCodeCoverageResults@2
+            displayName: "Publish code coverage"
+            inputs:
+              summaryFileLocation: '$(Agent.TempDirectory)\**\coverage.cobertura.xml'
+
+          - task: DotNetCoreCLI@2
+            displayName: "Pack TreeSitter.DotNet"
+            inputs:
+              command: "pack"
+              packagesToPack: "src/TreeSitter.csproj"
+              configuration: $(buildConfiguration)
+              packDirectory: "$(Build.ArtifactStagingDirectory)/packages"
+              nobuild: true
+              versioningScheme: "off"
+              arguments: "$(versionArguments) --no-restore"
+
+          - powershell: |
+              Write-Host "Generated NuGet packages:"
+              Write-Host "========================="
+              $packagesPath = "$(Build.ArtifactStagingDirectory)/packages"
+              if (Test-Path $packagesPath) {
+                  Get-ChildItem -Path $packagesPath -Filter "*.nupkg" | ForEach-Object {
+                      Write-Host "$($_.Name) - Size: $([math]::Round($_.Length / 1MB, 2)) MB"
+                  }
+              } else {
+                  Write-Host "Packages directory not found at: $packagesPath"
+              }
+              Write-Host "========================="
+            displayName: "List generated packages"
+
+          - task: PublishBuildArtifacts@1
+            displayName: "Publish artifacts"
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)/packages'
+              ArtifactName: "packages"
+              publishLocation: "Container"
+
+  - stage: PublishInternal
+    displayName: "Publish to Azure DevOps"
+    dependsOn: Build
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+    jobs:
+      - job: PublishToAzureDevOps
+        displayName: "Publish to COA Feed"
+        pool:
+          name: "Default"
+        steps:
+          - task: DownloadBuildArtifacts@1
+            displayName: "Download artifacts"
+            inputs:
+              buildType: "current"
+              downloadType: "single"
+              artifactName: "packages"
+              downloadPath: "$(System.ArtifactsDirectory)"
+
+          - task: NuGetCommand@2
+            displayName: "Push packages to COA Azure DevOps feed"
+            inputs:
+              command: 'push'
+              packagesToPush: '$(System.ArtifactsDirectory)/packages/*.nupkg'
+              nuGetFeedType: 'internal'
+              publishVstsFeed: 'COA'
+              allowPackageConflicts: true
+
+  - stage: PublishNuGetOrg
+    displayName: "Publish to NuGet.org"
+    dependsOn: PublishInternal
+    condition: and(succeeded(), eq(variables['shouldPublishToNuGet'], 'true'), eq(variables['isRelease'], 'true'))
+    jobs:
+      - job: PublishToNuGetOrg
+        displayName: "Publish to NuGet.org"
+        pool:
+          name: "Default"
+        steps:
+          - task: DownloadBuildArtifacts@1
+            displayName: "Download artifacts"
+            inputs:
+              buildType: "current"
+              downloadType: "single"
+              artifactName: "packages"
+              downloadPath: "$(System.ArtifactsDirectory)"
+
+          - powershell: |
+              Write-Host "Tree-Sitter packages to publish to NuGet.org:"
+              Write-Host "============================================="
+              $packagesPath = "$(System.ArtifactsDirectory)/packages"
+              if (Test-Path $packagesPath) {
+                  Get-ChildItem -Path $packagesPath -Filter "*.nupkg" | ForEach-Object {
+                      Write-Host $_.Name
+                  }
+              } else {
+                  Write-Host "Packages directory not found at: $packagesPath"
+              }
+              Write-Host "============================================="
+            displayName: "List packages to publish"
+
+          - task: NuGetCommand@2
+            displayName: "Push TreeSitter.DotNet to NuGet.org"
+            inputs:
+              command: 'push'
+              packagesToPush: '$(System.ArtifactsDirectory)/packages/TreeSitter.DotNet.*.nupkg'
+              nuGetFeedType: 'external'
+              publishFeedCredentials: 'NuGetOrg-ServiceConnection'
+              verbosityPush: 'Detailed'
+
+          - powershell: |
+              Write-Host "Successfully published TreeSitter.DotNet to NuGet.org!"
+              Write-Host "Package should appear at https://www.nuget.org/packages/TreeSitter.DotNet shortly"
+              Write-Host "Now supports 26 programming languages including Swift, PHP, SQL, YAML, Dart, Lua!"
+            displayName: "Publish success message"
+
+  - stage: CreateGitTag
+    displayName: "Create Git Tag"
+    dependsOn: PublishNuGetOrg
+    condition: and(succeeded(), eq(variables['shouldCreateTag'], 'true'), eq(variables['isRelease'], 'true'))
+    jobs:
+      - job: CreateTag
+        displayName: "Create Git Tag"
+        pool:
+          name: "Default"
+        steps:
+          - checkout: self
+            persistCredentials: true
+            clean: true
+
+          - powershell: |
+              $version = "$(versionPrefix)"
+              if ("$(versionSuffix)") {
+                  $version = "$(versionPrefix)-$(versionSuffix)"
+              }
+
+              $tagName = "v$version"
+              Write-Host "Creating tag: $tagName"
+
+              git config user.name "Azure DevOps Build"
+              git config user.email "build@coateam.dev"
+              git tag -a $tagName -m "Release $version - Tree-Sitter .NET Bindings with 26 language support"
+              git push origin $tagName
+
+              Write-Host "Successfully created and pushed tag: $tagName"
+            displayName: "Create and push git tag"

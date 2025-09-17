@@ -1,0 +1,40 @@
+# Generic Makefile for building tree-sitter grammars
+# This file should be copied to each grammar directory
+
+GRAMMAR_NAME := $(notdir $(CURDIR))
+LIB_NAME := lib$(GRAMMAR_NAME)
+
+# Include paths
+INCLUDE_DIR := ../include
+
+# Detect OS
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+    LIB_EXT = dylib
+    CFLAGS = -fPIC -std=c99 -O3 -I$(INCLUDE_DIR)
+    LDFLAGS = -dynamiclib -install_name @rpath/$(LIB_NAME).$(LIB_EXT)
+else
+    LIB_EXT = so
+    CFLAGS = -fPIC -std=c99 -O3 -I$(INCLUDE_DIR)
+    LDFLAGS = -shared
+endif
+
+# Source files
+SOURCES := $(wildcard *.c)
+OBJECTS := $(SOURCES:.c=.o)
+
+# Target library
+TARGET := $(LIB_NAME).$(LIB_EXT)
+
+all: $(TARGET)
+
+$(TARGET): $(OBJECTS)
+	$(CC) $(LDFLAGS) -o $@ $^
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+clean:
+	rm -f $(OBJECTS) $(TARGET)
+
+.PHONY: all clean

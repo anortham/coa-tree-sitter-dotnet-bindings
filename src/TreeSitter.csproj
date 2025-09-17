@@ -1,23 +1,23 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <LangVersion>12.0</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <EnablePackageValidation>true</EnablePackageValidation>
     <PackageId>TreeSitter.DotNet</PackageId>
-    <Version>1.0.1</Version>
+    <Version>1.1.0</Version>
     <Title>.NET bindings for tree-sitter</Title>
-    <Description>.NET bindings for the tree-sitter parsing library</Description>
+    <Description>.NET bindings for tree-sitter parsing library with comprehensive language support (26 languages including Swift, PHP, SQL, YAML, Dart, Lua, and more)</Description>
     <Authors>Marius Greuel</Authors>
     <Copyright>Copyright (c) 2025 Marius Greuel</Copyright>
     <PackageTags>treesitter;tree-sitter;parser;dotnet;bindings</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>PACKAGE.md</PackageReadmeFile>
-    <PackageProjectUrl>https://github.com/mariusgreuel/tree-sitter-dotnet-bindings</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/mariusgreuel/tree-sitter-dotnet-bindings.git</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/anortham/coa-tree-sitter-dotnet-bindings</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/anortham/coa-tree-sitter-dotnet-bindings.git</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
@@ -32,7 +32,13 @@
     <None Include="..\build\runtimes\win-x64\native\*" Condition="'$(OS)' == 'Windows_NT'">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\build\runtimes\linux-x64\native\*" Condition="'$(OS)' != 'Windows_NT'">
+    <None Include="..\build\runtimes\linux-x64\native\*" Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true'">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\build\runtimes\osx-x64\native\*" Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X64'">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\build\runtimes\osx-arm64\native\*" Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64'">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
