@@ -284,7 +284,7 @@ public class Language : IDisposable, IEquatable<Language>, ICloneable
 
     static string GetFunctionNameFromId(string id)
     {
-        return "tree_sitter_" + id.ToLowerInvariant();
+        return "tree_sitter_" + id.ToLowerInvariant().Replace('-', '_');
     }
 
     static IntPtr LoadLanguage(string library, string function)
