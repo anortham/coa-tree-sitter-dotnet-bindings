@@ -18,7 +18,6 @@ typedef uint16_t TSStateId;
 typedef uint16_t TSSymbol;
 typedef uint16_t TSFieldId;
 typedef struct TSLanguage TSLanguage;
-typedef struct TSLanguageMetadata TSLanguageMetadata;
 typedef struct TSLanguageMetadata {
   uint8_t major_version;
   uint8_t minor_version;
@@ -38,10 +37,15 @@ typedef struct {
   uint16_t length;
 } TSMapSlice;
 
+typedef TSMapSlice TSFieldMapSlice;
+#define version abi_version
+
 typedef struct {
   bool visible;
   bool named;
   bool supertype;
+  bool structural;
+  bool extra;
 } TSSymbolMetadata;
 
 typedef struct TSLexer TSLexer;
@@ -259,16 +263,45 @@ static inline bool set_contains(const TSCharacterRange *ranges, uint32_t len, in
     }                                 \
   }}
 
-#define REDUCE(symbol_name, children, precedence, prod_id) \
-  {{                                                       \
-    .reduce = {                                            \
-      .type = TSParseActionTypeReduce,                     \
-      .symbol = symbol_name,                               \
-      .child_count = children,                             \
-      .dynamic_precedence = precedence,                    \
-      .production_id = prod_id                             \
-    },                                                     \
+#define TREE_SITTER_INTERNAL_REDUCE2(symbol_name, children)            \
+  {{                                                                  \
+    .reduce = {                                                       \
+      .type = TSParseActionTypeReduce,                                \
+      .symbol = (symbol_name),                                        \
+      .child_count = (children),                                      \
+      .dynamic_precedence = 0,                                        \
+      .production_id = 0                                              \
+    },                                                                \
   }}
+
+#define TREE_SITTER_INTERNAL_REDUCE3(symbol_name, children, precedence) \
+  {{                                                                  \
+    .reduce = {                                                       \
+      .type = TSParseActionTypeReduce,                                \
+      .symbol = (symbol_name),                                        \
+      .child_count = (children),                                      \
+      .dynamic_precedence = (precedence),                             \
+      .production_id = 0                                              \
+    },                                                                \
+  }}
+
+#define TREE_SITTER_INTERNAL_REDUCE4(symbol_name, children, precedence, prod_id) \
+  {{                                                                             \
+    .reduce = {                                                                  \
+      .type = TSParseActionTypeReduce,                                           \
+      .symbol = (symbol_name),                                                   \
+      .child_count = (children),                                                 \
+      .dynamic_precedence = (precedence),                                        \
+      .production_id = (prod_id)                                                 \
+    },                                                                           \
+  }}
+
+#define TREE_SITTER_INTERNAL_REDUCE_CHOOSER(_1, _2, _3, _4, NAME, ...) NAME
+#define REDUCE(...) TREE_SITTER_INTERNAL_REDUCE_CHOOSER(__VA_ARGS__,       \
+  TREE_SITTER_INTERNAL_REDUCE4,                                           \
+  TREE_SITTER_INTERNAL_REDUCE3,                                           \
+  TREE_SITTER_INTERNAL_REDUCE2                                           \
+)(__VA_ARGS__)
 
 #define RECOVER()                    \
   {{                                 \

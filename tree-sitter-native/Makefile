@@ -19,10 +19,57 @@ else
 endif
 
 BUILD_DIR = ../build/runtimes/$(RID)/native
-# Rock-solid stable languages (100% working)
-LANGUAGES = c dart embedded-template go javascript swift
+# Working languages (verified set)
+# Keep this list in sync with tests/AllGrammarsTests.cs
+LANGUAGES = \
+    agda \
+    bash \
+    c \
+    cpp \
+    c-sharp \
+    css \
+    dart \
+    embedded-template \
+    go \
+    haskell \
+    html \
+    java \
+    javascript \
+    jsdoc \
+    json \
+    julia \
+    kotlin \
+    lua \
+    markdown \
+    ocaml \
+    php \
+    python \
+    ql \
+    razor \
+    ruby \
+    rust \
+    scala \
+    sql \
+    swift \
+    toml \
+    tsq \
+    tsx \
+    typescript \
+    verilog \
+    yaml
 PROJECTS = tree-sitter $(patsubst %,tree-sitter-%,$(LANGUAGES))
 LIBRARIES = $(patsubst %,$(BUILD_DIR)/lib%.$(LIB_EXT),$(PROJECTS))
+
+# On macOS, allow unresolved symbols to be resolved at runtime by the core
+# tree-sitter library. Many grammars rely on this behavior.
+ifeq ($(UNAME_S),Darwin)
+    EXTRA_LDFLAGS := -undefined dynamic_lookup
+else
+    EXTRA_LDFLAGS :=
+endif
+
+# Ensure common include paths are available in grammar builds
+EXTRA_CFLAGS := -I../include -I../tree-sitter/src -I. -Isrc
 
 all: $(BUILD_DIR) $(LIBRARIES)
 
@@ -31,53 +78,69 @@ $(BUILD_DIR):
 
 # Tree-sitter core library
 $(BUILD_DIR)/libtree-sitter.$(LIB_EXT):
-	make -C tree-sitter
+	$(MAKE) -C tree-sitter CFLAGS="$(CFLAGS) $(EXTRA_CFLAGS)" LDFLAGS="$(LDFLAGS) $(EXTRA_LDFLAGS)"
 	cp tree-sitter/libtree-sitter.$(LIB_EXT) $@
 
 $(BUILD_DIR)/libtree-sitter-ocaml.$(LIB_EXT):
-	make -C tree-sitter-ocaml
-	cp tree-sitter-ocaml/grammars/ocaml/libtree-sitter-ocaml.$(LIB_EXT) $@
+	$(MAKE) -C tree-sitter-ocaml CFLAGS="$(CFLAGS) $(EXTRA_CFLAGS)" LDFLAGS="$(LDFLAGS) $(EXTRA_LDFLAGS)"
+	@if [ -f tree-sitter-ocaml/grammars/ocaml/libtree-sitter-ocaml.$(LIB_EXT) ]; then \
+		cp tree-sitter-ocaml/grammars/ocaml/libtree-sitter-ocaml.$(LIB_EXT) $@; \
+	else \
+		cp tree-sitter-ocaml/libtree-sitter-ocaml.$(LIB_EXT) $@; \
+	fi
 
 $(BUILD_DIR)/libtree-sitter-php.$(LIB_EXT):
-	make -C tree-sitter-php
-	cp tree-sitter-php/php/libtree-sitter-php.$(LIB_EXT) $@
+	$(MAKE) -C tree-sitter-php CFLAGS="$(CFLAGS) $(EXTRA_CFLAGS)" LDFLAGS="$(LDFLAGS) $(EXTRA_LDFLAGS)"
+	@if [ -f tree-sitter-php/php/libtree-sitter-php.$(LIB_EXT) ]; then \
+		cp tree-sitter-php/php/libtree-sitter-php.$(LIB_EXT) $@; \
+	else \
+		cp tree-sitter-php/libtree-sitter-php.$(LIB_EXT) $@; \
+	fi
 
 $(BUILD_DIR)/libtree-sitter-typescript.$(LIB_EXT):
-	make -C tree-sitter-typescript
-	cp tree-sitter-typescript/typescript/libtree-sitter-typescript.$(LIB_EXT) $@
+	# Try building via grammar makefile; pass flags for macOS dynamic lookup
+	# Some checkouts flatten generated sources; if subdirs exist, copy from there
+	$(MAKE) -C tree-sitter-typescript CFLAGS="$(CFLAGS) $(EXTRA_CFLAGS)" LDFLAGS="$(LDFLAGS) $(EXTRA_LDFLAGS)"
+	@if [ -f tree-sitter-typescript/typescript/libtree-sitter-typescript.$(LIB_EXT) ]; then \
+		cp tree-sitter-typescript/typescript/libtree-sitter-typescript.$(LIB_EXT) $@; \
+	elif [ -f tree-sitter-typescript/libtree-sitter-typescript.$(LIB_EXT) ]; then \
+		cp tree-sitter-typescript/libtree-sitter-typescript.$(LIB_EXT) $@; \
+	else \
+		echo "Failed to locate built libtree-sitter-typescript.$(LIB_EXT)"; exit 1; \
+	fi
 
 $(BUILD_DIR)/libtree-sitter-tsx.$(LIB_EXT):
-	make -C tree-sitter-typescript
-	cp tree-sitter-typescript/tsx/libtree-sitter-tsx.$(LIB_EXT) $@
+	$(MAKE) -C tree-sitter-tsx CFLAGS="$(CFLAGS) $(EXTRA_CFLAGS)" LDFLAGS="$(LDFLAGS) $(EXTRA_LDFLAGS)"
+	cp tree-sitter-tsx/libtree-sitter-tsx.$(LIB_EXT) $@
 
 # New language rules for our added grammars
 $(BUILD_DIR)/libtree-sitter-dart.$(LIB_EXT):
-	make -C tree-sitter-dart
+	$(MAKE) -C tree-sitter-dart CFLAGS="$(CFLAGS) $(EXTRA_CFLAGS)" LDFLAGS="$(LDFLAGS) $(EXTRA_LDFLAGS)"
 	cp tree-sitter-dart/libtree-sitter-dart.$(LIB_EXT) $@
 
 $(BUILD_DIR)/libtree-sitter-kotlin.$(LIB_EXT):
-	make -C tree-sitter-kotlin
+	$(MAKE) -C tree-sitter-kotlin CFLAGS="$(CFLAGS) $(EXTRA_CFLAGS)" LDFLAGS="$(LDFLAGS) $(EXTRA_LDFLAGS)"
 	cp tree-sitter-kotlin/libtree-sitter-kotlin.$(LIB_EXT) $@
 
 $(BUILD_DIR)/libtree-sitter-lua.$(LIB_EXT):
-	make -C tree-sitter-lua
+	$(MAKE) -C tree-sitter-lua CFLAGS="$(CFLAGS) $(EXTRA_CFLAGS)" LDFLAGS="$(LDFLAGS) $(EXTRA_LDFLAGS)"
 	cp tree-sitter-lua/libtree-sitter-lua.$(LIB_EXT) $@
 
 $(BUILD_DIR)/libtree-sitter-sql.$(LIB_EXT):
-	make -C tree-sitter-sql
+	$(MAKE) -C tree-sitter-sql CFLAGS="$(CFLAGS) $(EXTRA_CFLAGS)" LDFLAGS="$(LDFLAGS) $(EXTRA_LDFLAGS)"
 	cp tree-sitter-sql/libtree-sitter-sql.$(LIB_EXT) $@
 
 $(BUILD_DIR)/libtree-sitter-swift.$(LIB_EXT):
-	make -C tree-sitter-swift
+	$(MAKE) -C tree-sitter-swift CFLAGS="$(CFLAGS) $(EXTRA_CFLAGS)" LDFLAGS="$(LDFLAGS) $(EXTRA_LDFLAGS)"
 	cp tree-sitter-swift/libtree-sitter-swift.$(LIB_EXT) $@
 
 $(BUILD_DIR)/libtree-sitter-yaml.$(LIB_EXT):
-	make -C tree-sitter-yaml
+	$(MAKE) -C tree-sitter-yaml CFLAGS="$(CFLAGS) $(EXTRA_CFLAGS)" LDFLAGS="$(LDFLAGS) $(EXTRA_LDFLAGS)"
 	cp tree-sitter-yaml/libtree-sitter-yaml.$(LIB_EXT) $@
 
 # Generic rule for simple grammars
 $(BUILD_DIR)/lib%.$(LIB_EXT):
-	make -C $*
+	$(MAKE) -C $* CFLAGS="$(CFLAGS) $(EXTRA_CFLAGS)" LDFLAGS="$(LDFLAGS) $(EXTRA_LDFLAGS)"
 	cp $*/lib$*.$(LIB_EXT) $@
 
 .PHONY: all

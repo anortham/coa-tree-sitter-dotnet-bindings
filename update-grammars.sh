@@ -156,6 +156,11 @@ update_grammar() {
                 mkdir -p "$NATIVE_DIR/tree-sitter-tsx"
                 cp tsx/src/* "$NATIVE_DIR/tree-sitter-tsx/" 2>/dev/null || true
             fi
+            # Copy shared TypeScript common headers so flattened sources can include ../../common/scanner.h
+            if [ -d "common" ]; then
+                mkdir -p "$SCRIPT_DIR/common"
+                cp -r common/* "$SCRIPT_DIR/common/" 2>/dev/null || true
+            fi
             ;;
         *)
             # Standard case - copy src directory

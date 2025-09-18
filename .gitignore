@@ -484,3 +484,14 @@ $RECYCLE.BIN/
 *.swp
 
 build/
+
+# Tree-sitter temporary files and development scripts
+tmp/
+tmp.*
+common/
+fix-parsers.sh
+test-*.sh
+.coa/
+
+# Artifacts from packaging
+artifacts/

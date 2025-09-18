@@ -1,13 +1,13 @@
 # .NET bindings for tree-sitter parsing library
 
 Provides .NET bindings for the [tree-sitter](https://github.com/tree-sitter/tree-sitter) parsing library.
-Also includes the native tree-sitter parsing library and a complete set of native language parsing libraries.
+Also includes the native tree-sitter parsing library and a verified set of native language parsing libraries.
 
 ## Key Features
 
 * .NET bindings for the tree-sitter parsing library.
 * Includes native libraries for the tree-sitter parsing library and language grammars.
-* Supports 18+ verified working language grammars with comprehensive test coverage.
+* Supports 30+ verified working language grammars with test coverage.
 * Supports Windows, Linux, and macOS (including Apple Silicon).
 * Support for [predicates queries](https://github.com/tree-sitter/tree-sitter/issues/4075).
 * Passes the [WebAssembly bindings](https://github.com/tree-sitter/tree-sitter/tree/master/lib/binding_web) test suite.
@@ -61,7 +61,7 @@ The NuGet package **TreeSitter** consists of three components:
 
 The NuGet package includes all DLLs and shared objects for the supported platforms and languages.
 
-## Included runtime libraries
+## Runtime Libraries and OS Support
 
 The NuGet package included pre-built native libraries for the following runtime identifier (RIDs):
 
@@ -73,16 +73,17 @@ The NuGet package included pre-built native libraries for the following runtime 
 - osx-x64
 - osx-arm64
 
-and the following projects:
+The package includes prebuilt native libraries for the above RIDs and the following verified grammars:
 
-- [Tree-sitter parsing library](https://github.com/tree-sitter/tree-sitter)
+- [Tree-sitter parsing library](https://github.com/tree-sitter/tree-sitter) v0.25.1
 - [Agda grammar](https://github.com/tree-sitter/tree-sitter-agda)
 - [Bash grammar](https://github.com/tree-sitter/tree-sitter-bash)
 - [C grammar](https://github.com/tree-sitter/tree-sitter-c)
 - [C++ grammar](https://github.com/tree-sitter/tree-sitter-cpp)
 - [C# grammar](https://github.com/tree-sitter/tree-sitter-c-sharp)
 - [CSS grammar](https://github.com/tree-sitter/tree-sitter-css)
-- [Embedded template languages like ERB, EJS grammar](https://github.com/tree-sitter/tree-sitter-embedded-template)
+- [Dart grammar](https://github.com/dart-lang/tree-sitter-dart)
+- [Embedded template languages grammar](https://github.com/tree-sitter/tree-sitter-embedded-template)
 - [Go grammar](https://github.com/tree-sitter/tree-sitter-go)
 - [Haskell grammar](https://github.com/tree-sitter/tree-sitter-haskell)
 - [HTML grammar](https://github.com/tree-sitter/tree-sitter-html)
@@ -92,16 +93,19 @@ and the following projects:
 - [JSON grammar](https://github.com/tree-sitter/tree-sitter-json)
 - [Julia grammar](https://github.com/tree-sitter/tree-sitter-julia)
 - [Kotlin grammar](https://github.com/fwcd/tree-sitter-kotlin)
+- [Lua grammar](https://github.com/tree-sitter-grammars/tree-sitter-lua)
 - [OCaml grammar](https://github.com/tree-sitter/tree-sitter-ocaml)
 - [PHP grammar](https://github.com/tree-sitter/tree-sitter-php)
 - [Python grammar](https://github.com/tree-sitter/tree-sitter-python)
 - [CodeQL grammar](https://github.com/tree-sitter/tree-sitter-ql)
-- [Rust grammar](https://github.com/tree-sitter/tree-sitter-rust)
-- [Razor grammar](https://github.com/tree-sitter/tree-sitter-razor)
 - [Ruby grammar](https://github.com/tree-sitter/tree-sitter-ruby)
 - [Rust grammar](https://github.com/tree-sitter/tree-sitter-rust)
 - [Scala grammar](https://github.com/tree-sitter/tree-sitter-scala)
 - [Swift grammar](https://github.com/tree-sitter/tree-sitter-swift)
+- [TSX grammar](https://github.com/tree-sitter/tree-sitter-typescript)
+- [TypeScript grammar](https://github.com/tree-sitter/tree-sitter-typescript)
+- [Verilog grammar](https://github.com/tree-sitter/tree-sitter-verilog)
+- [YAML grammar](https://github.com/tree-sitter-grammars/tree-sitter-yaml)
 - [TOML grammar](https://github.com/tree-sitter/tree-sitter-toml)
 - [Tree-sitter query grammar](https://github.com/tree-sitter/tree-sitter-tsq)
 - [TypeScript grammar](https://github.com/tree-sitter/tree-sitter-typescript)
@@ -109,17 +113,25 @@ and the following projects:
 
 ## Verified Working Languages
 
-The following **18 languages** have been verified to work correctly with comprehensive test coverage on macOS (Apple Silicon):
+The following **18+ languages** have been verified on macOS (Apple Silicon) with tests passing:
 
 ✅ **Core Languages**: Bash, C, C#, CSS, Go, HTML, Java, JavaScript, JSON, Python, Rust, Scala, TypeScript
 ✅ **Additional Languages**: Embedded Templates (ERB/EJS), Haskell, JSDoc, **Kotlin**, **Ruby**
 
-**Test Coverage**: 80/83 tests passing (96.4% success rate) including:
+**Test Coverage**: 82/83 tests passing (1 skipped) including:
 - Language loading tests for all 18 grammars
 - Parser functionality tests with real code samples
 - ABI version compatibility verification
 
-**Recently Added**: Ruby and Kotlin support with full parsing capability and comprehensive test coverage.
+**Recently Added**: Ruby and Kotlin support; TypeScript and TSX built from official sources.
+
+### OS Support Matrix
+
+- macOS (arm64 and x64): Verified builds and tests passing for the 18+ languages listed above.
+- Linux (x64/arm64): Build wired via Makefile and Azure Pipelines; packaging includes runtime assets.
+- Windows (x64): Build supported via Visual Studio solution (`tree-sitter-native.sln`) and Azure Pipelines; packaging includes runtime assets.
+
+Note: Some additional grammars are present in submodules (e.g., YAML, PHP, OCaml, TOML, SQL, Lua, Dart, Markdown, Verilog) and can be enabled after verification. See “Updating grammars” below.
 
 ## Development
 
@@ -178,7 +190,15 @@ dotnet build TreeSitter.csproj
 The native tree-sitter libraries will be built in the folder `/build/runtimes/osx-arm64/native` (Apple Silicon)
 or `/build/runtimes/osx-x64/native` (Intel) and automatically copied to your .NET `bin` folder when you build `TreeSitter.csproj`.
 
-**Note**: macOS builds support 18 verified working language grammars including Ruby and Kotlin.
+**Note**: macOS builds support 18+ verified languages including Bash, C/C++, C#, CSS, Go, HTML, Java, JavaScript, JSON, Kotlin, Python, Ruby, Rust, Scala, Swift, TypeScript/TSX.
+
+## Updating Grammars
+
+Use `./update-grammars.sh` to refresh grammar sources from their upstream repositories (requires network access). The script now:
+- Copies official TypeScript and TSX sources and the shared `common/scanner.h` so the TS grammars build without stubs.
+- Preserves a consistent layout for Makefiles so `make` builds all verified grammars on macOS/Linux.
+
+After updating, rebuild native libs (`cd tree-sitter-native && make`) and re-run tests (`dotnet test tests/TreeSitter.Tests.csproj`).
 
 ## Additional Documentation
 

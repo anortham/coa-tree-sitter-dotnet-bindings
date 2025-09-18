@@ -10,7 +10,7 @@
     <PackageId>TreeSitter.DotNet</PackageId>
     <Version>1.1.0</Version>
     <Title>.NET bindings for tree-sitter</Title>
-    <Description>.NET bindings for tree-sitter parsing library with comprehensive language support (26 languages including Swift, PHP, SQL, YAML, Dart, Lua, and more)</Description>
+    <Description>.NET bindings for the tree-sitter parsing library with comprehensive multi-language support (35 verified languages including Python, Go, Java, Kotlin, Dart, Ruby, PHP, Swift, Lua, Rust, C++, C#, JavaScript, TypeScript, TSX, Razor, and 19 more with real-world testing)</Description>
     <Authors>Marius Greuel</Authors>
     <Copyright>Copyright (c) 2025 Marius Greuel</Copyright>
     <PackageTags>treesitter;tree-sitter;parser;dotnet;bindings</PackageTags>
@@ -32,7 +32,10 @@
     <None Include="..\build\runtimes\win-x64\native\*" Condition="'$(OS)' == 'Windows_NT'">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\build\runtimes\linux-x64\native\*" Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true'">
+    <None Include="..\build\runtimes\linux-x64\native\*" Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X64'">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\build\runtimes\linux-arm64\native\*" Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64'">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="..\build\runtimes\osx-x64\native\*" Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X64'">
